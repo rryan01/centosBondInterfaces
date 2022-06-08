@@ -1,0 +1,70 @@
+---
+- name: Create CentOS Network bonds
+  hosts: server
+  remote_user: root
+# This will bond two interfaces on a CentOS box
+  vars:
+    bond_int_one: 'ens7f0'
+    bond_int_two: 'ens1f0'
+    ipv4address: '10.10.66.113/16'
+    
+  tasks:
+   - name: Install needed network manager libs
+     ansible.builtin.package:
+       name:
+         - NetworkManager-libnm
+         - nm-connection-editor
+         - libsemanage-python
+         - policycoreutils-python
+       state: present
+
+   - name: Try nmcli add bond - conn_name only & ip4 gw4 mode
+     community.general.nmcli:
+       type: bond
+       conn_name: 'bond0'
+       ip4: '{{ ipv4address }}'
+       gw4: '10.10.1.4'
+       mode: 'balance-rr'
+       dns4: '10.10.197.3'
+       autoconnect: yes
+       mtu: 9000
+       state: present
+       
+   - name: Turn off iterfaces so they do not further recieve DHCP
+     nmcli:
+       conn_name: '{{ item }}'
+       method4: disabled
+       method6: disabled
+       state: present
+     with_items:
+       - '{{ bond_int_one }}'
+       - '{{ bond_int_two }}'
+       
+   - name: Try nmcli add bond-slave 1
+     community.general.nmcli:
+       type: bond-slave
+       conn_name: 'bondslave1'
+       ifname: '{{ bond_int_one }}'
+       master: 'bond0'
+       state: present
+   - name: Try nmcli add bond-slave 2
+     community.general.nmcli:
+       type: bond-slave
+       conn_name: 'bondslave2'
+       ifname: '{{ bond_int_two }}'
+       master: 'bond0'
+       state: present
+    
+
+#  - name: Restart Network Manager
+#    ansible.builtin.service:
+#      name: NetworkManger
+#      status: restarted
+
+
+
+
+
+
+
+
